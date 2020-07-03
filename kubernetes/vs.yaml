@@ -1,0 +1,15 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: retry-tester
+  namespace: felix
+spec:
+  hosts:
+  - retry-tester.felix.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: retry-tester.felix.svc.cluster.local
+    retries:
+      attempts: 1
+      perTryTimeout: 100ms

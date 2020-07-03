@@ -19,4 +19,4 @@ spec:
     spec:
       containers:
       - name: client
-        image: eu.gcr.io/infra-sandbox-58fe57e9/grpc-tester
+        image: eu.gcr.io/infra-sandbox-58fe57e9/grpc-tester:latest
