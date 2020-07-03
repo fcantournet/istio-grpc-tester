@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	address     = "localhost:50051"
+	address     = "retry-tester-server:50051"
 	defaultName = "felix"
 )
 

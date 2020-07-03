@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retry-tester-server
+  labels:
+    app: retry-tester
+    component: server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: retry-tester
+      component: server
+  template:
+    metadata:
+      labels:
+        app: retry-tester
+        component: server
+    spec:
+      containers:
+      - name: server
+        image: eu.gcr.io/infra-sandbox-58fe57e9/grpc-tester
+        ports:
+        - containerPort: 8888
+          name: http-admin
+        - containerPort: 50051
+          name: grpc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: retry-tester
+    component: server
+name: retry-tester
+  namespace: felix
+spec:
+  ports:
+  - name: http-admin
+    port: 8888
+    protocol: TCP
+  - name: grpc
+    port: 50051
+    protocol: TCP
+  selector:
+    app: retry-tester
+    component: server
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: retry-tester
+  namespace: felix
+spec:
+  hosts:
+  - retry-tester.felix.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: retry-tester.felix.svc.cluster.local
+    retries:
+      attempts: 1
+      perTryTimeout: 100ms
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: retry-tester
+  namespace: felix
+spec:
+  host: retry-tester.felix.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        connectTimeout: 100ms
+    http:
+      h2UpgradePolicy: UPGRADE
+    loadBalancer:
+      simple: LEAST_CONN
