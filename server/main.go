@@ -37,6 +37,15 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
 }
 
+// SayHelloHTTP is the http API
+func (s *Server) SayHelloHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.fail {
+		w.WriteHeader(500)
+	}
+	time.Sleep(s.slowdown)
+	w.WriteHeader(200)
+}
+
 func (s *server) SetSlowdown(w http.ResponseWriter, r *http.Request) {
 	latencyString := r.URL.Query().Get("latency")
 	latency, err := time.ParseDuration(latencyString)
@@ -80,6 +89,7 @@ func main() {
 	mx := mux.NewRouter()
 	mx.HandleFunc("/slowdown", server.SetSlowdown)
 	mx.HandleFunc("/fail", server.SetFail)
+	mx.HandleFunc("/hello", server.SayHelloHTTP)
 
 	go http.ListenAndServe(adminport, mx)
 

@@ -20,6 +20,7 @@ spec:
       containers:
       - name: server
         image: eu.gcr.io/infra-sandbox-58fe57e9/grpc-tester:latest
+        command: ["/server"]
         ports:
         - containerPort: 8888
           name: http-admin

@@ -8,19 +8,31 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"flag"
+	"fmt"
 
 	"google.golang.org/grpc"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
 )
 
 const (
-	address     = "retry-tester-server:50051"
 	defaultName = "felix"
 )
 
+var address string
+var port int
+
+func init() {
+	flag.IntVar(&port, "port", 50051, "target grpc port")
+	flag.StringVar(&address, "address", "localhost", "target grpc address")
+}
+
+
 func main() {
+	flag.Parse()
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBackoffConfig(grpc.DefaultBackoffConfig))
+	target := fmt.Sprintf("%v:%v", address, port)
+	conn, err := grpc.Dial(target, grpc.WithInsecure(), grpc.WithBackoffConfig(grpc.DefaultBackoffConfig))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -29,8 +41,8 @@ func main() {
 
 	// Contact the server and print out its response.
 	name := defaultName
-	if len(os.Args) > 1 {
-		name = os.Args[1]
+	if len(flag.Args()) > 1 {
+		name = flag.Arg(1)
 	}
 
 	var gracefulStop = make(chan os.Signal)
