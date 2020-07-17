@@ -38,7 +38,7 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 }
 
 // SayHelloHTTP is the http API
-func (s *Server) SayHelloHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *server) SayHelloHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.fail {
 		w.WriteHeader(500)
 	}

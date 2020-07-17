@@ -3,13 +3,15 @@ package main
 
 import (
 	"context"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
@@ -21,16 +23,16 @@ const (
 
 var address string
 var port int
+var period time.Duration
 
 func init() {
 	flag.IntVar(&port, "port", 50051, "target grpc port")
 	flag.StringVar(&address, "address", "localhost", "target grpc address")
+	flag.DurationVar(&period, "period", time.Millisecond*500, "period for requests sent")
 }
 
-
-func main() {
-	flag.Parse()
-	// Set up a connection to the server.
+func grpcSayHelloForever(address string, port int, name string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	target := fmt.Sprintf("%v:%v", address, port)
 	conn, err := grpc.Dial(target, grpc.WithInsecure(), grpc.WithBackoffConfig(grpc.DefaultBackoffConfig))
 	if err != nil {
@@ -39,32 +41,25 @@ func main() {
 	defer conn.Close()
 	c := pb.NewGreeterClient(conn)
 
-	// Contact the server and print out its response.
-	name := defaultName
-	if len(flag.Args()) > 1 {
-		name = flag.Arg(1)
-	}
-
 	var gracefulStop = make(chan os.Signal)
 
 	signal.Notify(gracefulStop, syscall.SIGTERM)
 
-	tickchan := time.Tick(time.Millisecond * 500)
+	tickchan := time.Tick(period)
 
 	for {
 		select {
 		case <-gracefulStop:
-			os.Exit(0)
+			return
 		case <-tickchan:
-			sayhello(c, name)
+			go grpcSayHello(c, name)
 		}
 	}
 }
 
-func sayhello(c pb.GreeterClient, name string) {
+func grpcSayHello(c pb.GreeterClient, name string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-
 	start := time.Now()
 	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: name})
 	duration := time.Since(start)
@@ -73,4 +68,63 @@ func sayhello(c pb.GreeterClient, name string) {
 		return
 	}
 	log.Printf("Success: %s Duration: %v", r.Message, duration)
+	return
+}
+
+func httpSayHelloForever(address string, port int, name string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	query := fmt.Sprintf("%v:%v/hello?name=%s", address, port, name)
+
+	c := http.Client{
+		Timeout: time.Millisecond * 500,
+	}
+
+	var gracefulStop = make(chan os.Signal)
+
+	signal.Notify(gracefulStop, syscall.SIGTERM)
+
+	tickchan := time.Tick(period)
+
+	for {
+		select {
+		case <-gracefulStop:
+			return
+		case <-tickchan:
+			go httpSayHello(c, query)
+		}
+	}
+}
+
+func httpSayHello(c http.Client, query string) {
+	start := time.Now()
+	resp, err := c.Get(query)
+	duration := time.Since(start)
+
+	if err != nil {
+		log.Printf("Error: %v StatusCode: %v Duration: %v", err, resp.StatusCode, duration)
+		return
+	}
+	defer resp.Body.Close()
+	log.Printf("Success: %v Duration: %v", resp.StatusCode, duration)
+	return
+}
+
+func main() {
+	flag.Parse()
+
+	// Contact the server and print out its response.
+	name := defaultName
+	if len(flag.Args()) > 1 {
+		name = flag.Arg(1)
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	grpcSayHelloForever(address, port, name, &wg)
+
+	wg.Add(1)
+	httpSayHelloForever(address, port, name, &wg)
+
+	wg.Wait()
 }
