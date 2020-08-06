@@ -7,11 +7,11 @@ spec:
   hosts:
   - retry-tester.felix.svc.cluster.local
   http:
-  - timeout: 400ms
+  - timeout: 200ms
     route:
     - destination:
         host: retry-tester.felix.svc.cluster.local
     retries:
-      attempts: 2
-      perTryTimeout: 100ms
+      attempts: 1
+      perTryTimeout: 90ms
       retryOn: "connect-failure,gateway-error,cancelled,deadline-exceeded,unavailable,internal,resource-exhausted"

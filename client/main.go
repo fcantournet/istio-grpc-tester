@@ -121,10 +121,10 @@ func main() {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
-	grpcSayHelloForever(address, port, name, &wg)
+	go grpcSayHelloForever(address, port, name, &wg)
 
 	wg.Add(1)
-	httpSayHelloForever(address, port, name, &wg)
+	go httpSayHelloForever(address, port, name, &wg)
 
 	wg.Wait()
 }

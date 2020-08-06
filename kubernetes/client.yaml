@@ -6,7 +6,7 @@ metadata:
     app: retry-tester
     component: client
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: retry-tester
@@ -20,4 +20,4 @@ spec:
       containers:
       - name: client
         image: eu.gcr.io/infra-sandbox-58fe57e9/grpc-tester:latest
-        command: ["/client", "-address", "retry-tester"]
+        command: ["/client", "-address", "retry-tester", "-period", "100ms"]
