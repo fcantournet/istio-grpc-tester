@@ -1,6 +1,14 @@
 ---
-name: destination-tester-zonal-failover
+name: destination-tester
 namespace: service-discovery
+default_connection_config:
+  protocol: HTTP2
+  traffic_topology: NO_AFFINITY
+  active_health_check:
+    grpc:
+      service: "failedHC-checker"
+default_route_config:
+  request_timeout: "0.500s"
 endpointGroups:
   default:
     weight: 100
@@ -9,9 +17,3 @@ endpointGroups:
         name: destination-tester
         namespace: service-discovery
         port: 50051
-    connection_config:
-      traffic_topology: AZ_FAILOVER
-      protocol: HTTP2
-      active_health_check:
-        grpc:
-          service: ""

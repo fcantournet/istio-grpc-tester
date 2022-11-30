@@ -26,6 +26,11 @@ spec:
             - matchExpressions:
               - key: node-role.kubernetes.io/nodeless
                 operator: Exists
+            - matchExpressions:
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - "us-east-1a"
       tolerations:
       - effect: NoSchedule
         key: node

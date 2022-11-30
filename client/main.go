@@ -63,6 +63,10 @@ func grpcSayHelloForever(address string, port int, name string, wg *sync.WaitGro
 func grpcSayHello(c pb.GreeterClient, name string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+
+	// md := metadata.New(map[string]string{"x-envoy-upstream-rq-timeout-ms": "900"})
+	// ctx = metadata.NewOutgoingContext(ctx, md)
+
 	start := time.Now()
 	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: name})
 	duration := time.Since(start)

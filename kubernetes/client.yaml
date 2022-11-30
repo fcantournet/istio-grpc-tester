@@ -6,6 +6,7 @@ metadata:
   labels:
     service: destination-tester
     component: client
+    team: fabric-mesh
 spec:
   replicas: 1
   selector:
@@ -30,6 +31,10 @@ spec:
             - matchExpressions:
               - key: node-role.kubernetes.io/nodeless
                 operator: Exists
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - "us-east-1a"
       tolerations:
       - effect: NoSchedule
         key: node
@@ -42,8 +47,8 @@ spec:
         name: config
       containers:
       - name: client
-        image: 727006795293.dkr.ecr.us-east-1.amazonaws.com/service-discovery-platform/destination-tester:v2
-        command: ["/client", "-address", "destination-tester-zonal-failover.service-discovery.sidecar-proxy.fabric.dog", "-period", "100ms", "-port", "15001"]
+        image: 727006795293.dkr.ecr.us-east-1.amazonaws.com/service-discovery-platform/destination-tester:v6
+        command: ["/client", "-address", "destination-tester.service-discovery.sidecar-proxy.fabric.dog", "-period", "100ms", "-port", "15001"]
         volumeMounts:
         - mountPath: /etc/datadog
           name: config
@@ -65,6 +70,6 @@ metadata:
 data:
   fabric.yaml: |
     httpUpstreams:
-    - serviceName: destination-tester-zonal-failover
+    - serviceName: destination-tester
       namespace: service-discovery
       destination: true
