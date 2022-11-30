@@ -1,0 +1,17 @@
+---
+name: destination-tester-zonal-failover
+namespace: service-discovery
+endpointGroups:
+  default:
+    weight: 100
+    selector:
+      kubernetesServiceSelector:
+        name: destination-tester
+        namespace: service-discovery
+        port: 50051
+    connection_config:
+      traffic_topology: AZ_FAILOVER
+      protocol: HTTP2
+      active_health_check:
+        grpc:
+          service: ""

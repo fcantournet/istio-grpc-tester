@@ -1,28 +1,55 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: retry-tester-server
+  name: destination-tester-server
+  namespace: service-discovery
   labels:
-    app: retry-tester
+    service: destination-tester
     component: server
+    team: fabric-mesh
 spec:
-  replicas: 3
+  replicas: 6
   selector:
     matchLabels:
-      app: retry-tester
+      service: destination-tester
       component: server
   template:
     metadata:
       labels:
-        app: retry-tester
+        service: destination-tester
         component: server
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/nodeless
+                operator: Exists
+      tolerations:
+      - effect: NoSchedule
+        key: node
+        operator: Equal
+        value: nodeless
       containers:
       - name: server
-        image: eu.gcr.io/infra-sandbox-58fe57e9/grpc-tester:latest
+        image: 727006795293.dkr.ecr.us-east-1.amazonaws.com/service-discovery-platform/destination-tester:v3
         command: ["/server"]
+        readinessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /ready
+            port: 8888
+            scheme: HTTP
         ports:
         - containerPort: 8888
           name: http-admin
         - containerPort: 50051
           name: grpc
+        resources:
+          requests:
+            cpu: 1
+            memory: 1Gi
+          limits:
+            cpu: 1
+            memory: 1Gi

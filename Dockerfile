@@ -1,4 +1,4 @@
-FROM golang:1.14 as builder
+FROM golang:1.19 as builder
 
 # Set necessary environmet variables needed for our image
 ENV GO111MODULE=on \
@@ -26,4 +26,3 @@ FROM debian:buster
 
 COPY --from=builder /build/client /
 COPY --from=builder /build/server /
-

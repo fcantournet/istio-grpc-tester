@@ -24,11 +24,14 @@ const (
 var address string
 var port int
 var period time.Duration
+var sendhttp bool
 
 func init() {
 	flag.IntVar(&port, "port", 50051, "target grpc port")
 	flag.StringVar(&address, "address", "localhost", "target grpc address")
+	flag.BoolVar(&sendhttp, "http", false, "also send http queries")
 	flag.DurationVar(&period, "period", time.Millisecond*500, "period for requests sent")
+
 }
 
 func grpcSayHelloForever(address string, port int, name string, wg *sync.WaitGroup) {
@@ -41,7 +44,7 @@ func grpcSayHelloForever(address string, port int, name string, wg *sync.WaitGro
 	defer conn.Close()
 	c := pb.NewGreeterClient(conn)
 
-	var gracefulStop = make(chan os.Signal)
+	var gracefulStop = make(chan os.Signal, 1)
 
 	signal.Notify(gracefulStop, syscall.SIGTERM)
 
@@ -68,18 +71,17 @@ func grpcSayHello(c pb.GreeterClient, name string) {
 		return
 	}
 	log.Printf("Success: %s Duration: %v", r.Message, duration)
-	return
 }
 
 func httpSayHelloForever(address string, port int, name string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	query := fmt.Sprintf("%v:%v/hello?name=%s", address, port, name)
+	query := fmt.Sprintf("http://%v:%v/hello?name=%s", address, port, name)
 
 	c := http.Client{
 		Timeout: time.Millisecond * 500,
 	}
 
-	var gracefulStop = make(chan os.Signal)
+	var gracefulStop = make(chan os.Signal, 1)
 
 	signal.Notify(gracefulStop, syscall.SIGTERM)
 
@@ -101,12 +103,11 @@ func httpSayHello(c http.Client, query string) {
 	duration := time.Since(start)
 
 	if err != nil {
-		log.Printf("Error: %v StatusCode: %v Duration: %v", err, resp.StatusCode, duration)
+		log.Printf("HTTPError: %v Duration: %v", err, duration)
 		return
 	}
 	defer resp.Body.Close()
-	log.Printf("Success: %v Duration: %v", resp.StatusCode, duration)
-	return
+	log.Printf("HTTPSuccess: %v Duration: %v", resp.StatusCode, duration)
 }
 
 func main() {
@@ -123,8 +124,9 @@ func main() {
 	wg.Add(1)
 	go grpcSayHelloForever(address, port, name, &wg)
 
-	wg.Add(1)
-	go httpSayHelloForever(address, port, name, &wg)
-
+	if sendhttp {
+		wg.Add(1)
+		go httpSayHelloForever(address, port, name, &wg)
+	}
 	wg.Wait()
 }
