@@ -15,6 +15,7 @@ import (
 
 	"google.golang.org/grpc"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -29,7 +30,7 @@ var sendhttp bool
 func init() {
 	flag.IntVar(&port, "port", 50051, "target grpc port")
 	flag.StringVar(&address, "address", "localhost", "target grpc address")
-	flag.BoolVar(&sendhttp, "http", false, "also send http queries")
+	flag.BoolVar(&sendhttp, "http", false, "send http queries instead")
 	flag.DurationVar(&period, "period", time.Millisecond*500, "period for requests sent")
 
 }
@@ -61,11 +62,11 @@ func grpcSayHelloForever(address string, port int, name string, wg *sync.WaitGro
 }
 
 func grpcSayHello(c pb.GreeterClient, name string) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*600)
 	defer cancel()
 
-	// md := metadata.New(map[string]string{"x-envoy-upstream-rq-timeout-ms": "900"})
-	// ctx = metadata.NewOutgoingContext(ctx, md)
+	md := metadata.New(map[string]string{"x-envoy-upstream-rq-timeout-ms": "60"})
+	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	start := time.Now()
 	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: name})
@@ -103,7 +104,14 @@ func httpSayHelloForever(address string, port int, name string, wg *sync.WaitGro
 
 func httpSayHello(c http.Client, query string) {
 	start := time.Now()
-	resp, err := c.Get(query)
+	// md := metadata.New(map[string]string{"x-envoy-upstream-rq-timeout-ms": "900"})
+	// ctx = metadata.NewOutgoingContext(ctx, md)
+	req, err := http.NewRequest("GET", query, nil)
+	if err != nil {
+		log.Fatalf("could not create request: %v", err)
+	}
+	req.Header.Add("x-envoy-upstream-rq-timeout-ms", "60")
+	resp, err := c.Do(req)
 	duration := time.Since(start)
 
 	if err != nil {
@@ -125,12 +133,12 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-	go grpcSayHelloForever(address, port, name, &wg)
-
 	if sendhttp {
 		wg.Add(1)
 		go httpSayHelloForever(address, port, name, &wg)
+	} else {
+		wg.Add(1)
+		go grpcSayHelloForever(address, port, name, &wg)
 	}
 	wg.Wait()
 }

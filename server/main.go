@@ -4,14 +4,17 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
 
@@ -19,10 +22,11 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-const (
-	port      = ":50051"
-	adminport = ":8888"
-)
+var addr string
+
+func init() {
+	flag.StringVar(&addr, "addr", "127.0.0.1:8080", "listening address for server")
+}
 
 // server is used to implement helloworld.GreeterServer.
 type server struct {
@@ -117,6 +121,7 @@ func (s *server) Check() error {
 
 func main() {
 
+	flag.Parse()
 	server := server{
 		slowdown: time.Millisecond * 50,
 		fail:     false,
@@ -129,20 +134,35 @@ func main() {
 	mx.HandleFunc("/ready", server.Ready)
 	mx.HandleFunc("/hello", server.SayHelloHTTP)
 
-	go http.ListenAndServe(adminport, mx)
-
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
 	s := grpc.NewServer()
-
 	healthcheckServer := healthcheck.NewServer()
 	healthcheckServer.AddChecker("failedHC-checker", &server)
-
 	healthpb.RegisterHealthServer(s, &healthcheckServer)
 	pb.RegisterGreeterServer(s, &server)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+
+	http2s := http2.Server{}
+
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("cannot bind: %w", err)
+	}
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Fatalf("cannot accept: %w", err)
+		}
+		go http2s.ServeConn(conn, &http2.ServeConnOpts{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.ProtoMajor != 2 {
+					mx.ServeHTTP(w, r)
+					return
+				}
+				if strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+					s.ServeHTTP(w, r)
+					return
+				}
+				mx.ServeHTTP(w, r)
+			}),
+		})
 	}
 }
