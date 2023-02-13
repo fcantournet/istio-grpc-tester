@@ -1,0 +1,88 @@
+admin:
+  address:
+    socket_address: { address: 127.0.0.1, port_value: 9901 }
+static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address: { address: 127.0.0.1, port_value: 10000 }
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          stream_error_on_invalid_http_message: true
+          strip_any_host_port: true
+          use_remote_address: true
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["*"]
+              routes:
+              - match: { prefix: "/" }
+                route:
+                  cluster: detection_test
+                  timeout: 1s
+                  retry_policy:
+                    retry_on: connect-failure,reset,refused-stream
+                    num_retries: 3
+                    retry_back_off:
+                      base_interval: 0.005s
+                  max_stream_duration:
+                    grpc_timeout_header_max: 0s
+                    grpc_timeout_header_offset: 0.001s
+          http_filters:
+          - name: envoy.filters.http.grpc_stats
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emit_filter_state: true
+              stats_for_all_methods: true          
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  clusters:
+  - name: detection_test
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    outlier_detection:
+      interval: 5s
+      max_ejection_percent: 90
+      #consecutive_gateway_failure: 3
+      split_external_local_origin_errors: false
+      #consecutive_local_origin_failure: 3
+      enforcing_consecutive_5xx: 0
+      enforcing_consecutive_gateway_failure: 0
+      enforcing_consecutive_local_origin_failure: 0
+      enforcing_success_rate: 0
+      enforcing_local_origin_success_rate: 0
+      enforcing_failure_percentage: 0
+      enforcing_failure_percentage_local_origin: 0
+    common_lb_config:
+      healthy_panic_threshold:
+        value: 20
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http2_protocol_options:
+            connection_keepalive:
+              interval: 300s
+              timeout: 5s    
+    load_assignment:
+      cluster_name: detection_test
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 127.0.0.1
+                port_value: 50051
+        - endpoint:
+            address:
+              socket_address:
+                address: 127.0.0.1
+                port_value: 50052
